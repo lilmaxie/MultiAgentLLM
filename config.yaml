@@ -1,0 +1,6 @@
+DATASET_PATH: data_campaign
+OLLAMA_MODELS: [qwen3:1.7b, qwen3:0.6b]
+
+EMBED_PROVIDER: openai
+OPENAI_EMBED_MODEL: text-embedding-ada-002
+HF_EMBED_MODEL: sentence-transformers/all-MiniLM-L6-v2

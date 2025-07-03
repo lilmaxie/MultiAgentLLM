@@ -1,0 +1,23 @@
+# Core RAG / LLM
+llama-index>=0.11.0
+llama-index-embeddings-huggingface>=0.1.0
+llama-index-postprocessor-cohere-rerank>=0.1.0
+langchain>=0.3.0
+langchain-community>=0.0.32
+langchain-ollama>=0.0.11
+langgraph>=0.1.0
+langgraph-supervisor
+sentence-transformers>=2.7.0
+openai>=1.25.0
+cohere>=5.0.0
+
+# Transformers stack (nếu dùng HF)
+transformers>=4.42.0
+accelerate>=0.28.0
+bitsandbytes>=0.43.0
+
+# Tiện ích
+python-dotenv>=1.0.1
+tiktoken>=0.6.0
+requests>=2.32.0
+pyyaml>=6.0
