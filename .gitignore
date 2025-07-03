@@ -1,0 +1,8 @@
+.env
+notebook/
+AFFINA_CONTENT_PLAN_T7_2025.titles.csv
+AFFINA_CONTENT_PLAN_T7_2025.xlsx
+venv/
+data_campaign/
+data_plan_t7/
+data_script_posting/
