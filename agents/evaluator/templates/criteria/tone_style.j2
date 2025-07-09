@@ -1,0 +1,76 @@
+TONE & STYLE CRITERIA (10% weight)
+
+{% if language == "vietnamese" %}
+VIETNAMESE LANGUAGE REQUIREMENTS:
+- Natural, conversational Vietnamese
+- Appropriate formality level for social media
+- Clear and engaging writing style
+- Correct grammar and vocabulary usage
+- Culturally appropriate expressions
+{% else %}
+ENGLISH LANGUAGE REQUIREMENTS:
+- Professional, clear English
+- Appropriate for international audience
+- Correct grammar and terminology
+- Engaging yet professional tone
+- Accessible to non-native speakers
+{% endif %}
+
+{% if post_type == "health_nutrition" %}
+**Health & Nutrition Tone:**
+- Friendly and encouraging
+- Professional yet approachable
+- Educational without being preachy
+- Positive and motivational
+- Trustworthy and credible
+{% elif post_type == "disease_warning" %}
+**Disease Warning Tone:**
+- Serious but not panic-inducing
+- Informative and authoritative
+- Caring and supportive
+- Clear and direct
+- Responsible and trustworthy
+{% elif post_type == "travel_adventure" %}
+**Travel & Adventure Tone:**
+- Enthusiastic and inspiring
+- Youthful and dynamic
+- Adventurous yet responsible
+- Engaging and exciting
+- Suitable for travel enthusiasts
+{% elif post_type == "business_enterprise" %}
+**Business Enterprise Tone:**
+- Professional and authoritative
+- B2B-oriented and credible
+- Confident and persuasive
+- Industry-appropriate language
+- Business-focused and practical
+{% elif post_type == "lifestyle_office" %}
+**Lifestyle & Office Tone:**
+- Modern and relatable
+- Supportive and understanding
+- Practical and actionable
+- Work-life balance focused
+- Empathetic to workplace challenges
+{% elif post_type == "holiday_event" %}
+**Holiday & Event Tone:**
+- Celebratory and joyful
+- Respectful and appropriate
+- Warm and community-oriented
+- Culturally sensitive
+- Festive yet professional
+{% endif %}
+
+{% if target_audience %}
+TARGET AUDIENCE CONSIDERATIONS:
+- Tone appropriate for: {{ target_audience }}
+- Language level suitable for audience
+- Cultural and demographic relevance
+- Engagement style matching audience preferences
+{% endif %}
+
+EVALUATION FOCUS:
+- Appropriateness for topic and audience
+- Consistency throughout the post
+- Engagement and relatability
+- Professional yet approachable balance
+- Cultural and linguistic appropriateness

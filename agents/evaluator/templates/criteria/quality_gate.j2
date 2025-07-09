@@ -1,0 +1,33 @@
+QUALITY GATE RULES (mandatory)
+- If the post violates any of these ➜ score = 0.0, STOP scoring immediately:
+  • Wrong language from user input (Expected: {{ language }})
+  • Missing title or unattractive title
+  • No useful information or misleading information
+  • No connection to AFFINA
+  • Missing standard AFFINA contact information
+  • Inappropriate tone (too rigid or too commercial)
+
+STANDARD CONTACT INFORMATION REQUIRED:
+---
+{% if language == "english" %}
+**AFFINA VIETNAM**
+🗺 B7 An Phu New City, Nguyen Hoang, An Phu, Thu Duc, Ho Chi Minh City.
+☎️ 1900252599
+🌐 www.affina.com.vn
+📧 info@affina.com.vn
+{% else %}
+**AFFINA VIỆT NAM**
+🗺 B7 An Phú New City, Nguyễn Hoàng, An Phú, Tp Thủ Đức, Tp. Hồ Chí Minh.
+☎️ 1900252599
+🌐 www.affina.com.vn
+📧 info@affina.com.vn
+{% endif %}
+
+IF PASSES GATE ➜ score by weighted criteria:
+1. **Content & Information** (40%) – Accurate, useful, educational value
+2. **Structure & Presentation** (25%) – Easy to read, logical, appropriate emoji usage
+3. **AFFINA Connection** (20%) – Natural, not forced, persuasive
+4. **Tone & Style** (10%) – Friendly, professional, suitable for audience
+5. **Completeness** (5%) – Complete standard contact info, appropriate hashtags
+
+Total = Σ(criteria × weight). Decimal score 0 – 1. Pass when ≥ 0.8.

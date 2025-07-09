@@ -6,10 +6,7 @@ from multiagent_system import MultiAgentSystem
 
 
 DEMO_PROMPT = (
-    "Tạo chương trình khuyến mãi back-to-school cho học sinh sinh viên, "
-    "bao gồm bảo hiểm tai nạn (giảm 25%), bảo hiểm sức khỏe (giảm 15%), "
-    "bảo hiểm du học (giảm 20%). Thời gian 8-10/2025. "
-    "Điều kiện: độ tuổi 15-25, có thẻ sinh viên. Mục tiêu 30,000 khách hàng mới"
+    """☀️ 5 dấu hiệu có thể là ung thư dạ dày giai đoạn đầu"""
 )
 
 def pretty_print_result(res: dict):
@@ -35,11 +32,14 @@ def pretty_print_result(res: dict):
     print("=" * 50)
     print(f"📊 Điểm số: {res['score']:.2f}")
     print(f"🔄 Số vòng lặp: {res['iterations']}")
-    print(f"✅ Trạng thái: {'ĐẠT CHUẨN' if res['score'] >= 0.8 else 'CHƯA ĐẠT CHUẨN'}")
+    print(f"✅ Trạng thái: {'ĐẠT CHUẨN' if res['score'] >= 0.75 else 'CHƯA ĐẠT CHUẨN'}")
 
     print("\n📄 TEMPLATE CUỐI CÙNG:")
     print("-" * 50)
     print(res["content"])
+
+    if res.get("docx_path"):
+        print(f"\n📄 File Word: {res['docx_path']}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     
 """
 1. python -m pip install -r requirements.txt
-2. python utils/pull_ollama_model.py
-3. python tools/build_index.py data_campaign (optional)
-4. python main.py "Tạo chương trình khuyến mãi back-to-school cho học sinh sinh viên, giảm 25% …"
+2. python -m utils.pull_ollama_model
+3. python -m tools.build_index <data_path> (optional)
+4. python -m main "<prompt>"
 """
