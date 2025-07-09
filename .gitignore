@@ -6,3 +6,6 @@ venv/
 data_campaign/
 data_plan_t7/
 data_script_posting/
+__pycache__/
+outputs/
+prompt_pre_version/
