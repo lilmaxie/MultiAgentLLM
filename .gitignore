@@ -9,3 +9,4 @@ data_script_posting/
 __pycache__/
 outputs/
 prompt_pre_version/
+config.yaml
