@@ -1,11 +1,21 @@
-QUALITY GATE RULES (mandatory)
-- If the post violates any of these ➜ score = 0.0, STOP scoring immediately:
-  • Wrong language from user input (Expected: {{ language }})
-  • Missing title or unattractive title
-  • No useful information or misleading information
-  • No connection to AFFINA
-  • Missing standard AFFINA contact information
-  • Inappropriate tone (too rigid or too commercial)
+QUALITY GATE RULES (mandatory check - if ANY fails → score = 0.0)
+
+CRITICAL REQUIREMENTS:
+1. **Language Compliance**: Must match expected language ({{ language }})
+2. **Title Quality**: Must have attractive, relevant title that captures attention
+3. **Content Value**: Must provide useful, accurate information (no misleading content)
+4. **AFFINA Connection**: Must meet connection requirements based on post type:
+   {% if post_type in ["health_nutrition", "holiday_event", "disease_warning", "lifestyle_office"] %}
+   - **NO AFFINA product promotion required** for {{ post_type }}
+   - Focus on educational/informational value only
+   - Contact information still required at end
+   {% else %}
+   - **AFFINA connection required** for {{ post_type }}
+   - Natural integration of AFFINA services/products
+   - Clear value proposition presentation
+   {% endif %}
+5. **Contact Information**: Must include complete AFFINA contact details
+6. **Tone Appropriateness**: Must match topic requirements (not overly commercial or rigid)
 
 STANDARD CONTACT INFORMATION REQUIRED:
 ---
@@ -23,11 +33,11 @@ STANDARD CONTACT INFORMATION REQUIRED:
 📧 info@affina.com.vn
 {% endif %}
 
-IF PASSES GATE ➜ score by weighted criteria:
-1. **Content & Information** (40%) – Accurate, useful, educational value
-2. **Structure & Presentation** (25%) – Easy to read, logical, appropriate emoji usage
-3. **AFFINA Connection** (20%) – Natural, not forced, persuasive
-4. **Tone & Style** (10%) – Friendly, professional, suitable for audience
-5. **Completeness** (5%) – Complete standard contact info, appropriate hashtags
+IF PASSES ALL GATES → Proceed to weighted scoring:
+1. **Content & Information** (40%) – Accuracy, depth, educational value
+2. **Structure & Presentation** (25%) – Readability, logical flow, formatting
+3. **AFFINA Connection** (20%) – Appropriate connection level for post type
+4. **Tone & Style** (10%) – Suitable for topic and audience
+5. **Completeness** (5%) – Complete contact info and appropriate hashtags
 
-Total = Σ(criteria × weight). Decimal score 0 – 1. Pass when ≥ 0.8.
+**Pass Threshold**: Total score ≥ 0.8 (80%)

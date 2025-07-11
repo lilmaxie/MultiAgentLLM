@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import json
 from typing import Any, Dict, List, Optional
 from jinja2 import Environment, FileSystemLoader, Template
 from utils import call_llm
@@ -24,6 +25,43 @@ class GeneratorAgent:
             "holiday_event": "post_types/holiday_event.j2",
         }
 
+    def _extract_search_content_from_plan(self, plan_data: Any) -> str:
+        """Extract search content from orchestrator plan data"""
+        search_content = ""
+        
+        if isinstance(plan_data, dict):
+            # Check if search results are available
+            search_results = plan_data.get("search_results")
+            if search_results and search_results.get("success"):
+                search_content = "📚 RESEARCH FINDINGS FROM ORCHESTRATOR:\n\n"
+                
+                # Add main answer if available
+                if search_results.get("answer"):
+                    search_content += f"🔍 KEY INSIGHTS:\n{search_results['answer']}\n\n"
+                
+                # Add detailed results
+                results = search_results.get("results", [])
+                if results:
+                    search_content += "📊 DETAILED SOURCES:\n"
+                    for i, result in enumerate(results[:5], 1):
+                        title = result.get("title", "Unknown")
+                        content = result.get("content", "")
+                        url = result.get("url", "")
+                        score = result.get("score", 0)
+                        domain = result.get("domain", "")
+                        
+                        search_content += f"\n{i}. {title}\n"
+                        search_content += f"   Domain: {domain}\n"
+                        search_content += f"   URL: {url}\n"
+                        search_content += f"   Relevance: {score:.2f}\n"
+                        
+                        # Add content snippet
+                        if content:
+                            snippet = content[:300] + "..." if len(content) > 300 else content
+                            search_content += f"   Content: {snippet}\n"
+        
+        return search_content
+
     def generate(self, 
                  user_request: str,
                  plan_data: Any,
@@ -33,7 +71,7 @@ class GeneratorAgent:
                  custom_hashtags: Optional[List[str]] = None,
                  feedback: str = "") -> Dict[str, Any]:
         """
-        Generate content using Jinja2 templates
+        Generate content using Jinja2 templates with search content from orchestrator
         """
         
         # Extract plan text from plan_data
@@ -58,6 +96,9 @@ class GeneratorAgent:
         if post_type not in self.post_type_templates:
             raise ValueError(f"Post type must be one of: {list(self.post_type_templates.keys())}")
         
+        # Extract search content from orchestrator plan
+        search_content = self._extract_search_content_from_plan(plan_data)
+        
         # Load post type specific template
         post_type_template_name = self.post_type_templates[post_type]
         try:
@@ -74,7 +115,9 @@ class GeneratorAgent:
             "custom_hashtags": custom_hashtags or [],
             "user_request": user_request,
             "plan_text": plan_text,
-            "feedback": feedback
+            "feedback": feedback,
+            "search_content": search_content if search_content else None,
+            "search_enabled": bool(search_content)
         }
         
         # Render post type template first
@@ -90,7 +133,14 @@ class GeneratorAgent:
         raw_response = call_llm(self.llm, prompt).strip()
         
         # Extract and return structured response
-        return self._extract_thinking_and_content(raw_response, template_variables)
+        result = self._extract_thinking_and_content(raw_response, template_variables)
+        
+        # Add search information to result
+        if search_content:
+            result["search_content"] = search_content
+            result["search_enabled"] = True
+        
+        return result
 
     def get_available_post_types(self) -> List[str]:
         """Get list of available post types"""
@@ -150,8 +200,8 @@ class GeneratorAgent:
                 content = re.sub(pattern, '', content, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
         
         # Remove CONTENT_END at the end (improved regex)
-        content = re.sub(r'\s*\*\*CONTENT_END\*\*\s*$', '', content, flags=re.IGNORECASE)
-        content = re.sub(r'\s*CONTENT_END\s*$', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'\s*\*\*CONTENT_END\*\*\s*', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'\s*CONTENT_END\s*', '', content, flags=re.IGNORECASE)
         
         # Remove excessive blank lines
         content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
@@ -165,5 +215,6 @@ class GeneratorAgent:
             "language": template_vars.get("language"),
             "post_type": template_vars.get("post_type"),
             "target_audience": template_vars.get("target_audience"),
-            "custom_hashtags": template_vars.get("custom_hashtags")
+            "custom_hashtags": template_vars.get("custom_hashtags"),
+            "search_enabled": template_vars.get("search_enabled", False)
         }

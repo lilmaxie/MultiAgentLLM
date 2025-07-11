@@ -1,30 +1,37 @@
-# multiagent_system.py
 from __future__ import annotations
 
+from config import CONFIG
 from typing import Any, Dict, List, Optional
 
-# LangGraph
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
-# Agents & state
 from agents import (
     AgentState,
     OrchestratorAgent,
     GeneratorAgent,
     EvaluatorAgent,
 )
-# LLM + utilities
+
 from utils import get_llm
 from utils.save_to_word import save_to_word
 
 
 class MultiAgentSystem:
     def __init__(self):
-        llm = get_llm(model="qwen3:1.7b", temperature=0.8, verbose=True)
+        llm = get_llm(model="qwen3:1.7b", temperature=0.7, verbose=True)
 
-        self.orchestrator = OrchestratorAgent(llm)
-        self.generator = GeneratorAgent(llm)
+        # Get API key from CONFIG for Tavily (used in both Orchestrator and Generator)
+        tavily_api_key = CONFIG.get("TAVILY_API_KEY")
+        
+        if not tavily_api_key:
+            print("⚠️ Warning: Tavily API key not found. Web search will be disabled.")
+
+        self.orchestrator = OrchestratorAgent(
+            llm=llm,
+            tavily_api_key=tavily_api_key
+        )
+        self.generator = GeneratorAgent(llm=llm)
         self.evaluator = EvaluatorAgent(llm)
         self.graph = self._build_graph()
 
@@ -62,7 +69,7 @@ class MultiAgentSystem:
 
     def initialize_node(self, state: AgentState) -> AgentState:
         """Khởi tạo state ban đầu"""
-        print("🚀 Khởi tạo hệ thống Multi-Agent với Jinja2 Templates")
+        print("🚀 Khởi tạo hệ thống Multi-Agent với Tavily Search")
 
         # Ensure default criteria is set if not provided
         if not state.get("custom_criteria"):
@@ -76,12 +83,15 @@ class MultiAgentSystem:
             "best_result": {"score": 0.0, "content": ""},
             "thinking_log": [],
             "feedback": "",
-            "should_continue": True
+            "should_continue": True,
+            "enable_search": state.get("enable_search", True),
+            "search_results": None,
+            "search_content": None
         }
 
     def orchestrator_node(self, state: AgentState) -> AgentState:
-        """Node xử lý Orchestrator với Jinja2 template"""
-        print("📋 Chạy Orchestrator Agent...")
+        """Node xử lý Orchestrator với Tavily Search"""
+        print("📋 Chạy Orchestrator Agent với Tavily Search...")
 
         try:
             # Lấy các parameters từ state
@@ -90,16 +100,23 @@ class MultiAgentSystem:
                 language=state.get("language", "vietnamese"),
                 topic_type=state.get("topic_type", "food_nutrition"),
                 target_audience=state.get("target_audience"),
-                custom_hashtags=state.get("custom_hashtags")
+                custom_hashtags=state.get("custom_hashtags"),
+                enable_search=state.get("enable_search", True)
             )
             
             print(f"✅ Orchestrator plan completed")
-            if plan_result.get("thinking"):
-                print(f"💭 Thinking: {plan_result['thinking']}")
+            
+            # In ra search results nếu có
+            if plan_result.get("search_results"):
+                search_results = plan_result["search_results"]
+                print(f"🔍 Tavily Search: {search_results.get('total_results', 0)} sources found")
+                if search_results.get("answer"):
+                    print(f"📊 Key insights available from search")
             
             return {
                 **state,
-                "orchestrator_plan": plan_result
+                "orchestrator_plan": plan_result,
+                "search_results": plan_result.get("search_results")
             }
             
         except Exception as e:
@@ -111,26 +128,29 @@ class MultiAgentSystem:
                 "language": state.get("language", "vietnamese"),
                 "topic_type": state.get("topic_type", "food_nutrition"),
                 "target_audience": state.get("target_audience"),
-                "custom_hashtags": state.get("custom_hashtags")
+                "custom_hashtags": state.get("custom_hashtags"),
+                "search_results": None
             }
             return {
                 **state,
-                "orchestrator_plan": fallback_plan
+                "orchestrator_plan": fallback_plan,
+                "search_results": None
             }
 
     def generator_node(self, state: AgentState) -> AgentState:
-        """Node xử lý Generator với Jinja2 template"""
+        """Node xử lý Generator - sử dụng search content từ Orchestrator"""
         print(f"🔸 Generator - Lần lặp {state['iteration'] + 1}")
 
         try:
             # Lấy thông tin từ orchestrator plan
             orchestrator_plan = state["orchestrator_plan"]
             
+            # Sử dụng đúng tên parameter theo generator.py
             gen_result = self.generator.generate(
                 user_request=state["user_request"],
                 plan_data=orchestrator_plan,
                 language=state.get("language", "vietnamese"),
-                post_type=state.get("post_type", "health_nutrition"),  # Map topic_type to post_type
+                post_type=self._map_topic_to_post_type(state.get("topic_type", "food_nutrition")),
                 target_audience=state.get("target_audience"),
                 custom_hashtags=state.get("custom_hashtags"),
                 feedback=state["feedback"]
@@ -138,9 +158,14 @@ class MultiAgentSystem:
             
             print(f"✅ Generator completed - Content length: {len(gen_result.get('content', ''))}")
             
+            # In ra thông tin search content nếu có
+            if gen_result.get("search_content"):
+                print(f"📄 Using search content from Orchestrator: {len(gen_result['search_content'])} characters")
+            
             return {
                 **state,
                 "generator_output": gen_result,
+                "search_content": gen_result.get("search_content"),
                 "iteration": state["iteration"] + 1
             }
             
@@ -151,13 +176,15 @@ class MultiAgentSystem:
                 "content": f"Nội dung được tạo cho yêu cầu: {state['user_request']}",
                 "thinking": f"Lỗi trong quá trình tạo nội dung: {str(e)}",
                 "language": state.get("language", "vietnamese"),
-                "post_type": state.get("post_type", "health_nutrition"),
+                "post_type": self._map_topic_to_post_type(state.get("topic_type", "food_nutrition")),
                 "target_audience": state.get("target_audience"),
-                "custom_hashtags": state.get("custom_hashtags")
+                "custom_hashtags": state.get("custom_hashtags"),
+                "search_content": None
             }
             return {
                 **state,
                 "generator_output": fallback_gen,
+                "search_content": None,
                 "iteration": state["iteration"] + 1
             }
 
@@ -174,6 +201,7 @@ class MultiAgentSystem:
                 "feedback": "Nội dung quá ngắn hoặc thiếu thông tin. Hãy tạo nội dung đầy đủ hơn.",
                 "thinking": "Content quá ngắn hoặc không có"
             }
+            print("⚠️ Content quá ngắn")
         else:
             try:
                 # Map post_type if needed
@@ -218,6 +246,7 @@ class MultiAgentSystem:
                 "content": gen_output["content"],
                 "iteration": state["iteration"]
             }
+            print(f"🏆 NEW BEST RESULT! Score: {eval_result['score']:.2f}")
 
         print(f"📊 Score: {eval_result['score']:.2f}")
         if eval_result["feedback"]:
@@ -252,7 +281,7 @@ class MultiAgentSystem:
 
     def finalize_node(self, state: AgentState) -> AgentState:
         """Node hoàn thiện kết quả cuối cùng"""
-        print("🏁 Hoàn thiện kết quả…")
+        print("🏁 Hoàn thiện kết quả...")
 
         final_result = state["best_result"]["content"]
         final_score = state["best_result"]["score"]
@@ -268,6 +297,7 @@ class MultiAgentSystem:
         print(f"📊 Điểm số cuối cùng: {final_score:.2f}")
         print(f"🔄 Số lần lặp: {state['iteration']}")
         print(f"🎯 Lần lặp tốt nhất: {state['best_result'].get('iteration', 'N/A')}")
+        print(f"🔍 Tavily search enabled: {state.get('enable_search', False)}")
         print(
             f"✅ Trạng thái: {'ĐẠT CHUẨN' if final_score >= state['pass_threshold'] else 'CHƯA ĐẠT CHUẨN'}"
         )
@@ -316,21 +346,9 @@ class MultiAgentSystem:
             custom_criteria: Optional[Dict[str, float]] = None,
             evaluation_focus: Optional[str] = None,
             max_iterations: int = 3,
-            pass_threshold: float = 0.75) -> Dict[str, Any]:
-        """
-        Chạy hệ thống multi-agent với input đầy đủ
-        
-        Args:
-            user_request: Yêu cầu của người dùng
-            language: Ngôn ngữ ("vietnamese" hoặc "english")
-            topic_type: Loại chủ đề (food_nutrition, disease_warning, etc.)
-            target_audience: Đối tượng mục tiêu
-            custom_hashtags: Danh sách hashtags tùy chỉnh
-            custom_criteria: Tiêu chí đánh giá tùy chỉnh
-            evaluation_focus: Trọng tâm đánh giá
-            max_iterations: Số lần lặp tối đa
-            pass_threshold: Ngưỡng điểm để pass
-        """
+            pass_threshold: float = 0.75,
+            enable_search: bool = True,
+            verbose: bool = True) -> Dict[str, Any]:
         
         # Validate inputs
         if language not in ["vietnamese", "english"]:
@@ -338,11 +356,11 @@ class MultiAgentSystem:
         
         if topic_type not in self.get_available_topics():
             raise ValueError(f"Topic type must be one of: {self.get_available_topics()}")
-
-        # Map topic_type to post_type
+        
+        # Map topic_type to post_type for compatibility
         post_type = self._map_topic_to_post_type(topic_type)
-
-        # Use default criteria if none provided
+        
+        # Set default criteria if not provided
         if custom_criteria is None:
             custom_criteria = self.get_default_criteria()
 
@@ -358,19 +376,21 @@ class MultiAgentSystem:
             custom_criteria=custom_criteria,
             evaluation_focus=evaluation_focus,
             max_iterations=max_iterations,
-            pass_threshold=pass_threshold
+            pass_threshold=pass_threshold,
+            enable_search=enable_search
         )
 
-        print(f"🚀 Bắt đầu xử lý với cấu hình:")
-        print(f"  📝 Yêu cầu: {user_request}")
-        print(f"  🌐 Ngôn ngữ: {language}")
-        print(f"  📂 Chủ đề: {topic_type} -> {post_type}")
-        print(f"  👥 Đối tượng: {target_audience or 'Không xác định'}")
-        print(f"  🏷️ Hashtags: {custom_hashtags or 'Mặc định'}")
-        print(f"  📊 Criteria: {list(custom_criteria.keys()) if custom_criteria else 'Mặc định'}")
-        print(f"  🎯 Ngưỡng pass: {pass_threshold}")
-        print(f"  🔄 Tối đa {max_iterations} lần lặp")
-        print("-" * 50)
+        if verbose:
+            print(f"🚀 Bắt đầu xử lý với cấu hình:")
+            print(f"  📝 Yêu cầu: {user_request}")
+            print(f"  🌐 Ngôn ngữ: {language}")
+            print(f"  📂 Chủ đề: {topic_type} -> {post_type}")
+            print(f"  👥 Đối tượng: {target_audience or 'Không xác định'}")
+            print(f"  🏷️ Hashtags: {custom_hashtags or 'Mặc định'}")
+            print(f"  🎯 Ngưỡng pass: {pass_threshold}")
+            print(f"  🔄 Tối đa {max_iterations} lần lặp")
+            print(f"  🔍 Tavily search: {'Enabled' if enable_search else 'Disabled'}")
+            print("-" * 50)
 
         # Chạy graph với thread_id để sử dụng checkpointer
         config = {"configurable": {"thread_id": "main_thread"}}
@@ -382,6 +402,8 @@ class MultiAgentSystem:
                 "content": result["final_result"],
                 "score": result["best_result"]["score"],
                 "orchestrator_plan": result["orchestrator_plan"],
+                "search_results": result.get("search_results"),
+                "search_content": result.get("search_content"),
                 "thinking_log": result["thinking_log"],
                 "iterations": result["iteration"],
                 "docx_path": result.get("docx_path"),
@@ -392,6 +414,7 @@ class MultiAgentSystem:
                 "target_audience": target_audience,
                 "custom_hashtags": custom_hashtags,
                 "custom_criteria": custom_criteria,
+                "enable_search": enable_search,
                 "success": result["best_result"]["score"] >= pass_threshold
             }
             
@@ -401,39 +424,36 @@ class MultiAgentSystem:
                 "content": f"Lỗi: {str(e)}",
                 "score": 0.0,
                 "orchestrator_plan": {},
+                "search_results": None,
+                "search_content": None,
                 "thinking_log": [],
                 "iterations": 0,
                 "docx_path": None,
                 "error": str(e),
+                "enable_search": enable_search,
                 "success": False
             }
 
 
 def main():
-    """Hàm main để test hệ thống"""
+    """Hàm main để test hệ thống với Tavily search"""
     system = MultiAgentSystem()
     
-    # Test với các tham số khác nhau
+    # Test với Tavily search enabled
     test_cases = [
-        # {
-        #     "user_request": "5 lợi ích của việc ăn trái cây hàng ngày",
-        #     "language": "vietnamese",
-        #     "topic_type": "food_nutrition",
-        #     "target_audience": "Người trung niên quan tâm đến sức khỏe",
-        #     "custom_hashtags": ["#suckhoe", "#traicay", "#dinh_duong"]
-        # },
         {
-            "user_request": "Create a warning post about seasonal flu",
-            "language": "english",
-            "topic_type": "disease_warning",
-            "target_audience": "General public",
-            "custom_hashtags": ["#flu", "#health", "#prevention"]
+            "user_request": "5 thực phẩm giàu magie với tác dụng giúp ngủ ngon",
+            "language": "vietnamese",
+            "topic_type": "food_nutrition",
+            "target_audience": "Mọi người",
+            "custom_hashtags": ["#dinhduong", "#suckhoe"],
+            "enable_search": True
         }
     ]
     
     for i, test_case in enumerate(test_cases, 1):
         print(f"\n{'='*60}")
-        print(f"TEST CASE {i}")
+        print(f"TEST CASE {i} - WITH TAVILY SEARCH")
         print(f"{'='*60}")
         
         result = system.run(**test_case)
@@ -442,7 +462,17 @@ def main():
         print(f"✅ Thành công: {result['success']}")
         print(f"📊 Điểm số: {result['score']:.2f}")
         print(f"🔄 Số lần lặp: {result['iterations']}")
+        print(f"🔍 Tavily search: {'Enabled' if result['enable_search'] else 'Disabled'}")
         print(f"📄 File Word: {result.get('docx_path', 'Không có')}")
+        
+        # Show search statistics
+        if result.get('search_results'):
+            search_stats = result['search_results']
+            print(f"📊 Total sources: {search_stats.get('total_results', 0)}")
+        
+        if result.get('search_content'):
+            print(f"📄 Search content: {len(result['search_content'])} characters")
+        
         print(f"\n📝 Nội dung:\n{result['content']}")
 
 

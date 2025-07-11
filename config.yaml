@@ -1,6 +1,104 @@
+# Dataset and Model Configuration
 DATASET_PATH: data_campaign
 OLLAMA_MODELS: [qwen3:1.7b]
 
+# Embedding Configuration
 EMBED_PROVIDER: openai
 OPENAI_EMBED_MODEL: text-embedding-ada-002
 HF_EMBED_MODEL: sentence-transformers/all-MiniLM-L6-v2
+
+# Google Search API (for Orchestrator Agent)
+GOOGLE_API_KEY: ""
+GOOGLE_CSE_ID: ""
+GOOGLE_SEARCH_MAX_RESULTS: 10
+GOOGLE_SEARCH_TIMEOUT: 10
+
+# Tavily Search API (for Generator Agent)
+TAVILY_API_KEY: ""
+TAVILY_SEARCH_DEPTH: "advanced"
+TAVILY_MAX_RESULTS: 8
+TAVILY_INCLUDE_ANSWER: true
+TAVILY_INCLUDE_RAW_CONTENT: true
+TAVILY_TIMEOUT: 30
+
+# General Search Configuration
+ENABLE_WEB_SEARCH: true
+MAX_SEARCH_RESULTS: 10
+MAX_CREDIBLE_SOURCES: 5
+SEARCH_TIMEOUT: 10
+SEARCH_RATE_LIMIT_DELAY: 0.1  # Delay between searches in seconds
+
+ORCHESTRATOR_TEMPLATE_DIR: "agents/orchestrator/templates"
+GENERATOR_TEMPLATE_DIR: "agents/generator/templates"
+EVALUATOR_TEMPLATE_DIR: "agents/evaluator/templates"
+
+# Supported Languages
+SUPPORTED_LANGUAGES: ["vietnamese", "english"]
+
+# Topic Types for Orchestrator
+TOPIC_TYPES:
+  - food_nutrition
+  - disease_warning
+  - travel_adventure
+  - business_enterprise
+  - lifestyle_office
+  - holiday_event
+
+# Post Types for Generator
+POST_TYPES:
+  - health_nutrition
+  - disease_warning
+  - travel_adventure
+  - business_enterprise
+  - lifestyle_office
+  - holiday_event
+
+# Default Settings
+DEFAULT_LANGUAGE: "vietnamese"
+DEFAULT_TOPIC_TYPE: "food_nutrition"
+DEFAULT_POST_TYPE: "health_nutrition"
+
+
+DEBUG_SEARCH: true
+LOG_SEARCH_QUERIES: true
+LOG_SEARCH_RESULTS: false  # Set to true for detailed logging
+LOG_CREDIBILITY_SCORES: true
+LOG_TAVILY_RESPONSES: false  # Set to true for detailed Tavily logging
+
+# Graph and Agent Configuration
+GRAPH_TIMEOUT: 300 
+MAX_ITERATIONS: 10
+AGENT_RETRY_ATTEMPTS: 3
+AGENT_RETRY_DELAY: 1  # seconds
+
+# Company Information
+COMPANY_NAME: "Your InsurTech Company"
+COMPANY_FOCUS: "insurtech"
+BRAND_VOICE: "professional_yet_accessible"
+
+# Content Guidelines
+CONTENT_GUIDELINES:
+  - "Always emphasize safety and risk management"
+  - "Include insurance relevance where appropriate"
+  - "Use data-driven insights"
+  - "Maintain professional credibility"
+  - "Focus on practical actionable advice"
+  - "Cite credible sources when possible"
+  - "Include relevant statistics and facts"
+
+# Search Query Optimization
+MAX_SEARCH_QUERIES_PER_TOPIC: 5
+MAX_URLS_TO_PROCESS: 5
+SEARCH_QUERY_MAX_TERMS: 6
+
+# Content Extraction Settings
+CONTENT_SNIPPET_LENGTH: 300
+MAX_CONTENT_SOURCES: 5
+CONTENT_RELEVANCE_THRESHOLD: 0.4
+
+# Rate Limiting
+ORCHESTRATOR_SEARCH_DELAY: 0.1  # seconds between Google searches
+GENERATOR_SEARCH_DELAY: 0.5     # seconds between Tavily searches
+
+# API Keys (Add your actual keys here)
+# OPENAI_API_KEY: "your-openai-api-key-here"

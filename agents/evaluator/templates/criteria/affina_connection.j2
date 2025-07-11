@@ -1,53 +1,58 @@
 AFFINA CONNECTION CRITERIA (20% weight)
 
-NATURAL CONNECTION REQUIREMENTS:
-- Smooth transition from topic to AFFINA products/services
-- Not forced or overly commercial
-- Relevant to the post's main topic
-- Persuasive but not aggressive
-- Authentic brand representation
+CONNECTION REQUIREMENTS BY POST TYPE:
 
 {% if post_type == "health_nutrition" %}
-**Health & Nutrition → Health Insurance Connection:**
-- Natural flow from "health importance → health/medical insurance"
-- Emphasize protection and prevention
-- Connect nutrition benefits to long-term health coverage
-- Highlight AFFINA's health insurance products
+**Health & Nutrition Posts - NO AFFINA PROMOTION:**
+- **Focus**: Pure educational content about nutrition and health benefits
+- **Connection**: Only through AFFINA contact information at post end
+- **Avoid**: Insurance product mentions, sales pitches, promotional content
+- **Evaluate**: Content should be standalone valuable health information
+- **Score High**: Detailed explanations of nutritional benefits, specific health impacts
 {% elif post_type == "disease_warning" %}
-**Disease Warning → Medical Insurance Connection:**
-- Natural connection through medical cost protection
-- Emphasize early detection and treatment coverage
-- Connect health risks to insurance necessity
-- Highlight AFFINA's medical insurance benefits
-{% elif post_type == "travel_adventure" %}
-**Travel → Travel Insurance Connection:**
-- Natural flow from travel experiences to travel protection
-- Emphasize adventure safety and coverage
-- Connect travel risks to insurance solutions
-- Highlight AFFINA's travel/accident insurance products
-{% elif post_type == "business_enterprise" %}
-**Business → Business Insurance Connection:**
-- Direct connection through business protection needs
-- Emphasize business continuity and risk management
-- Connect business challenges to insurance solutions
-- Highlight AFFINA's business insurance products
-{% elif post_type == "lifestyle_office" %}
-**Lifestyle → Personal/Health Insurance Connection:**
-- Connect workplace wellness to personal protection
-- Emphasize work-life balance and health coverage
-- Natural flow from lifestyle to insurance needs
-- Highlight AFFINA's personal and health insurance
+**Disease Warning Posts - NO AFFINA PROMOTION:**
+- **Focus**: Medical information, warning signs, prevention advice
+- **Connection**: Only through AFFINA contact information at post end
+- **Avoid**: Insurance product mentions, exploiting health fears for sales
+- **Evaluate**: Accurate medical information with detailed explanations
+- **Score High**: In-depth symptom explanations, prevention mechanisms
 {% elif post_type == "holiday_event" %}
-**Holiday → Company Values Connection:**
-- Connect through AFFINA's caring company values
-- Emphasize protection and care during celebrations
-- Natural connection through family and community care
-- Highlight AFFINA's commitment to customer protection
+**Holiday & Event Posts - NO AFFINA PROMOTION:**
+- **Focus**: Warm wishes, cultural respect, community values
+- **Connection**: Only through AFFINA contact information at post end
+- **Avoid**: Insurance product mentions, commercial messaging
+- **Evaluate**: Sincerity of holiday wishes, cultural appropriateness
+- **Score High**: Heartfelt messages, cultural sensitivity, community focus
+{% elif post_type == "lifestyle_office" %}
+**Lifestyle & Office Posts - NO AFFINA PROMOTION:**
+- **Focus**: Practical workplace wellness and lifestyle tips
+- **Connection**: Only through AFFINA contact information at post end
+- **Avoid**: Insurance product mentions, workplace insurance pitches
+- **Evaluate**: Practical value of lifestyle advice for office workers
+- **Score High**: Actionable workplace wellness tips, work-life balance advice
+{% elif post_type == "travel_adventure" %}
+**Travel & Adventure Posts - AFFINA PROMOTION REQUIRED:**
+- **Focus**: Natural connection through travel protection needs
+- **Connection**: Travel/accident insurance emphasis, adventure safety coverage
+- **Evaluate**: Smooth transition from travel content to insurance necessity
+- **Score High**: Natural flow from travel risks to protection solutions
+{% elif post_type == "business_enterprise" %}
+**Business Enterprise Posts - AFFINA PROMOTION REQUIRED:**
+- **Focus**: Business protection and risk management emphasis
+- **Connection**: Business insurance products, enterprise coverage solutions
+- **Evaluate**: Professional business-to-business insurance positioning
+- **Score High**: Clear business value proposition, risk management focus
 {% endif %}
 
 EVALUATION FOCUS:
-- Naturalness of brand integration
-- Relevance to post topic
-- Persuasiveness without being pushy
-- Brand authenticity and trustworthiness
-- Clear value proposition presentation
+{% if post_type in ["health_nutrition", "holiday_event", "disease_warning", "lifestyle_office"] %}
+- **NO promotion scoring** - evaluate educational/informational value only
+- Contact information completeness and professional presentation
+- Content authenticity and genuine value to readers
+- Absence of forced commercial messaging
+{% else %}
+- Naturalness and relevance of insurance connection
+- Persuasiveness without aggressive sales tactics
+- Clear value proposition for target audience
+- Professional brand representation and trustworthiness
+{% endif %}
