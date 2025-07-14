@@ -78,11 +78,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
-    
-"""
-1. python -m pip install -r requirements.txt
-2. python -m utils.pull_ollama_model
-3. python -m tools.build_index <data_path> (optional)
-4. python -m main "<prompt>"
-"""

@@ -140,7 +140,7 @@
 #         src = os.path.splitext(os.path.basename(md_file_path))[0]
 #         return process_affina_markdown(md_content, source_file=src)
 #     except Exception as exc:  # pylint: disable=broad-except
-#         print(f"❌ Lỗi xử lý {md_file_path}: {exc}")
+#         print(f"Lỗi xử lý {md_file_path}: {exc}")
 #         return []
 
 # def save_nodes_to_json(nodes: List[TextNode], filename: str):

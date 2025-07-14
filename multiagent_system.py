@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from config import CONFIG
 from typing import Any, Dict, List, Optional
 
@@ -19,40 +20,45 @@ from utils.save_to_word import save_to_word
 
 class MultiAgentSystem:
     def __init__(self):
-        llm = get_llm(model="qwen3:1.7b", temperature=0.7, verbose=True)
-
-        # Get API key from CONFIG for Tavily (used in both Orchestrator and Generator)
-        tavily_api_key = CONFIG.get("TAVILY_API_KEY")
+        self.llm = get_llm(model="qwen3:1.7b", temperature=0.7, verbose=True)
+        self.tavily_api_key = CONFIG.get("TAVILY_API_KEY")
         
-        if not tavily_api_key:
-            print("⚠️ Warning: Tavily API key not found. Web search will be disabled.")
+        if not self.tavily_api_key:
+            self._log("WARNING: Tavily API key not found. Web search will be disabled.")
 
         self.orchestrator = OrchestratorAgent(
-            llm=llm,
-            tavily_api_key=tavily_api_key
+            llm=self.llm,
+            tavily_api_key=self.tavily_api_key
         )
-        self.generator = GeneratorAgent(llm=llm)
-        self.evaluator = EvaluatorAgent(llm)
+        self.generator = GeneratorAgent(llm=self.llm)
+        self.evaluator = EvaluatorAgent(self.llm)
         self.graph = self._build_graph()
 
+    def _log(self, message: str, level: str = "INFO"):
+        """Centralized logging function"""
+        print(f"[{level}] {message}")
+
+    def _log_json(self, data: Dict[str, Any], title: str = "Data"):
+        """Log JSON data in a formatted way"""
+        print(f"\n=== {title} ===")
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        print("=" * (len(title) + 8))
+
     def _build_graph(self) -> StateGraph:
-        """Xây dựng LangGraph workflow"""
+        """Build LangGraph workflow"""
         workflow = StateGraph(AgentState)
 
-        # Thêm các nodes
         workflow.add_node("initialize", self.initialize_node)
         workflow.add_node("orchestrator", self.orchestrator_node)
         workflow.add_node("generator", self.generator_node)
         workflow.add_node("evaluator", self.evaluator_node)
         workflow.add_node("finalize", self.finalize_node)
 
-        # Định nghĩa edges
         workflow.add_edge(START, "initialize")
         workflow.add_edge("initialize", "orchestrator")
         workflow.add_edge("orchestrator", "generator")
         workflow.add_edge("generator", "evaluator")
 
-        # Conditional edge: tiếp tục hoặc kết thúc
         workflow.add_conditional_edges(
             "evaluator",
             self.should_continue_generation,
@@ -63,19 +69,17 @@ class MultiAgentSystem:
         )
         workflow.add_edge("finalize", END)
 
-        # Sử dụng checkpointer với cấu hình thread_id
         memory = MemorySaver()
         return workflow.compile(checkpointer=memory)
 
     def initialize_node(self, state: AgentState) -> AgentState:
-        """Khởi tạo state ban đầu"""
-        print("🚀 Khởi tạo hệ thống Multi-Agent với Tavily Search")
+        """Initialize system state"""
+        self._log("Initializing Multi-Agent System")
 
-        # Ensure default criteria is set if not provided
         if not state.get("custom_criteria"):
             state["custom_criteria"] = self.evaluator.get_default_criteria()
 
-        return {
+        initialized_state = {
             **state,
             "iteration": 0,
             "max_iterations": state.get("max_iterations", 3),
@@ -89,12 +93,23 @@ class MultiAgentSystem:
             "search_content": None
         }
 
+        self._log_json({
+            "user_request": state["user_request"],
+            "language": state.get("language", "vietnamese"),
+            "topic_type": state.get("topic_type", "food_nutrition"),
+            "target_audience": state.get("target_audience"),
+            "max_iterations": initialized_state["max_iterations"],
+            "pass_threshold": initialized_state["pass_threshold"],
+            "enable_search": initialized_state["enable_search"]
+        }, "INITIALIZATION CONFIG")
+
+        return initialized_state
+
     def orchestrator_node(self, state: AgentState) -> AgentState:
-        """Node xử lý Orchestrator với Tavily Search"""
-        print("📋 Chạy Orchestrator Agent với Tavily Search...")
+        """Process Orchestrator with Tavily Search"""
+        self._log("Running Orchestrator Agent")
 
         try:
-            # Lấy các parameters từ state
             plan_result = self.orchestrator.plan(
                 user_request=state["user_request"],
                 language=state.get("language", "vietnamese"),
@@ -104,14 +119,34 @@ class MultiAgentSystem:
                 enable_search=state.get("enable_search", True)
             )
             
-            print(f"✅ Orchestrator plan completed")
+            self._log("Orchestrator plan completed successfully")
             
-            # In ra search results nếu có
+            # Log orchestrator planning details
+            self._log_json({
+                "plan": plan_result.get("plan", ""),
+                "thinking": plan_result.get("thinking", ""),
+                "language": plan_result.get("language"),
+                "topic_type": plan_result.get("topic_type"),
+                "target_audience": plan_result.get("target_audience"),
+                "custom_hashtags": plan_result.get("custom_hashtags")
+            }, "ORCHESTRATOR PLANNING")
+            
+            # Log search results if available
             if plan_result.get("search_results"):
                 search_results = plan_result["search_results"]
-                print(f"🔍 Tavily Search: {search_results.get('total_results', 0)} sources found")
-                if search_results.get("answer"):
-                    print(f"📊 Key insights available from search")
+                self._log_json({
+                    "total_results": search_results.get("total_results", 0),
+                    "query": search_results.get("query", ""),
+                    "answer": search_results.get("answer", "")[:500] + "..." if search_results.get("answer") else "",
+                    "sources_count": len(search_results.get("results", [])),
+                    "sources": [
+                        {
+                            "title": result.get("title", ""),
+                            "url": result.get("url", ""),
+                            "score": result.get("score", 0)
+                        } for result in search_results.get("results", [])[:3]
+                    ]
+                }, "TAVILY SEARCH RESULTS")
             
             return {
                 **state,
@@ -120,11 +155,10 @@ class MultiAgentSystem:
             }
             
         except Exception as e:
-            print(f"❌ Orchestrator error: {str(e)}")
-            # Fallback plan
+            self._log(f"Orchestrator error: {str(e)}", "ERROR")
             fallback_plan = {
-                "plan": f"Tạo nội dung theo yêu cầu: {state['user_request']}",
-                "thinking": f"Lỗi trong quá trình phân tích: {str(e)}",
+                "plan": f"Create content for request: {state['user_request']}",
+                "thinking": f"Error in analysis: {str(e)}",
                 "language": state.get("language", "vietnamese"),
                 "topic_type": state.get("topic_type", "food_nutrition"),
                 "target_audience": state.get("target_audience"),
@@ -138,14 +172,13 @@ class MultiAgentSystem:
             }
 
     def generator_node(self, state: AgentState) -> AgentState:
-        """Node xử lý Generator - sử dụng search content từ Orchestrator"""
-        print(f"🔸 Generator - Lần lặp {state['iteration'] + 1}")
+        """Process Generator using search content from Orchestrator"""
+        iteration = state['iteration'] + 1
+        self._log(f"Running Generator Agent - Iteration {iteration}")
 
         try:
-            # Lấy thông tin từ orchestrator plan
             orchestrator_plan = state["orchestrator_plan"]
             
-            # Sử dụng đúng tên parameter theo generator.py
             gen_result = self.generator.generate(
                 user_request=state["user_request"],
                 plan_data=orchestrator_plan,
@@ -156,25 +189,35 @@ class MultiAgentSystem:
                 feedback=state["feedback"]
             )
             
-            print(f"✅ Generator completed - Content length: {len(gen_result.get('content', ''))}")
+            self._log(f"Generator completed - Content length: {len(gen_result.get('content', ''))}")
             
-            # In ra thông tin search content nếu có
+            # Log generator details
+            self._log_json({
+                "thinking": gen_result.get("thinking", ""),
+                "content_length": len(gen_result.get("content", "")),
+                "content_preview": gen_result.get("content", "")[:200] + "..." if gen_result.get("content") else "",
+                "language": gen_result.get("language"),
+                "post_type": gen_result.get("post_type"),
+                "target_audience": gen_result.get("target_audience"),
+                "custom_hashtags": gen_result.get("custom_hashtags"),
+                "search_content_used": bool(gen_result.get("search_content"))
+            }, f"GENERATOR OUTPUT - ITERATION {iteration}")
+            
             if gen_result.get("search_content"):
-                print(f"📄 Using search content from Orchestrator: {len(gen_result['search_content'])} characters")
+                self._log(f"Using search content from Orchestrator: {len(gen_result['search_content'])} characters")
             
             return {
                 **state,
                 "generator_output": gen_result,
                 "search_content": gen_result.get("search_content"),
-                "iteration": state["iteration"] + 1
+                "iteration": iteration
             }
             
         except Exception as e:
-            print(f"❌ Generator error: {str(e)}")
-            # Fallback generation
+            self._log(f"Generator error: {str(e)}", "ERROR")
             fallback_gen = {
-                "content": f"Nội dung được tạo cho yêu cầu: {state['user_request']}",
-                "thinking": f"Lỗi trong quá trình tạo nội dung: {str(e)}",
+                "content": f"Content generated for request: {state['user_request']}",
+                "thinking": f"Error in content generation: {str(e)}",
                 "language": state.get("language", "vietnamese"),
                 "post_type": self._map_topic_to_post_type(state.get("topic_type", "food_nutrition")),
                 "target_audience": state.get("target_audience"),
@@ -185,29 +228,25 @@ class MultiAgentSystem:
                 **state,
                 "generator_output": fallback_gen,
                 "search_content": None,
-                "iteration": state["iteration"] + 1
+                "iteration": iteration
             }
 
     def evaluator_node(self, state: AgentState) -> AgentState:
-        """Node xử lý Evaluator với Jinja2 template"""
-        print(f"⚖️ Evaluator - Đánh giá lần {state['iteration']}")
+        """Process Evaluator with detailed feedback"""
+        self._log(f"Running Evaluator Agent - Iteration {state['iteration']}")
 
         gen_output = state["generator_output"]
 
-        # Kiểm tra nếu content quá ngắn
         if not gen_output.get("content") or len(gen_output["content"].strip()) < 50:
             eval_result = {
                 "score": 0.0,
-                "feedback": "Nội dung quá ngắn hoặc thiếu thông tin. Hãy tạo nội dung đầy đủ hơn.",
-                "thinking": "Content quá ngắn hoặc không có"
+                "feedback": "Content is too short or lacks information. Please generate more complete content.",
+                "thinking": "Content is too short or missing"
             }
-            print("⚠️ Content quá ngắn")
+            self._log("Content too short for evaluation", "WARNING")
         else:
             try:
-                # Map post_type if needed
                 post_type = self._map_topic_to_post_type(state.get("topic_type", "food_nutrition"))
-                
-                # Ensure custom_criteria is provided
                 custom_criteria = state.get("custom_criteria") or self.evaluator.get_default_criteria()
                 
                 eval_result = self.evaluator.evaluate(
@@ -220,14 +259,24 @@ class MultiAgentSystem:
                 )
                 
             except Exception as e:
-                print(f"❌ Evaluator error: {str(e)}")
+                self._log(f"Evaluator error: {str(e)}", "ERROR")
                 eval_result = {
                     "score": 0.3,
-                    "feedback": f"Lỗi trong quá trình đánh giá: {str(e)}. Nội dung cần cải thiện.",
+                    "feedback": f"Error in evaluation: {str(e)}. Content needs improvement.",
                     "thinking": f"Evaluation error: {str(e)}"
                 }
 
-        # Cập nhật thinking log
+        # Log evaluation details
+        self._log_json({
+            "iteration": state["iteration"],
+            "score": eval_result["score"],
+            "feedback": eval_result["feedback"],
+            "thinking": eval_result.get("thinking", ""),
+            "criteria_used": state.get("custom_criteria", {}),
+            "content_length": len(gen_output.get("content", "")),
+            "pass_threshold": state["pass_threshold"]
+        }, f"EVALUATOR FEEDBACK - ITERATION {state['iteration']}")
+
         thinking_entry = {
             "iteration": state["iteration"],
             "generator_thinking": gen_output.get("thinking", ""),
@@ -238,7 +287,6 @@ class MultiAgentSystem:
 
         new_thinking_log = state["thinking_log"] + [thinking_entry]
 
-        # Cập nhật best result nếu tốt hơn
         best_result = state["best_result"]
         if eval_result["score"] > best_result["score"]:
             best_result = {
@@ -246,11 +294,11 @@ class MultiAgentSystem:
                 "content": gen_output["content"],
                 "iteration": state["iteration"]
             }
-            print(f"🏆 NEW BEST RESULT! Score: {eval_result['score']:.2f}")
+            self._log(f"NEW BEST RESULT! Score: {eval_result['score']:.3f}")
 
-        print(f"📊 Score: {eval_result['score']:.2f}")
+        self._log(f"Current Score: {eval_result['score']:.3f}")
         if eval_result["feedback"]:
-            print(f"💬 Feedback: {eval_result['feedback']}")
+            self._log(f"Feedback: {eval_result['feedback']}")
 
         return {
             **state,
@@ -261,46 +309,47 @@ class MultiAgentSystem:
         }
 
     def should_continue_generation(self, state: AgentState) -> str:
-        """Quyết định có tiếp tục generate hay không"""
+        """Decide whether to continue generation"""
         eval_output = state["evaluator_output"]
 
-        # Kiểm tra điều kiện dừng
         if (eval_output["score"] >= state["pass_threshold"] and
             state["generator_output"].get("content") and
             len(state["generator_output"]["content"].strip()) > 50):
-            print(f"✅ Đạt chuẩn: {eval_output['score']:.2f} ≥ {state['pass_threshold']}")
+            self._log(f"Threshold reached: {eval_output['score']:.3f} >= {state['pass_threshold']}")
             return "finalize"
 
-        # Kiểm tra số lần lặp tối đa
         if state["iteration"] >= state["max_iterations"]:
-            print(f"⚠️ Hết {state['max_iterations']} vòng lặp")
+            self._log(f"Maximum iterations reached: {state['max_iterations']}")
             return "finalize"
 
-        print(f"🔄 Tiếp tục - Score: {eval_output['score']:.2f}")
+        self._log(f"Continuing - Score: {eval_output['score']:.3f}")
         return "continue"
 
     def finalize_node(self, state: AgentState) -> AgentState:
-        """Node hoàn thiện kết quả cuối cùng"""
-        print("🏁 Hoàn thiện kết quả...")
+        """Finalize results"""
+        self._log("Finalizing results")
 
         final_result = state["best_result"]["content"]
         final_score = state["best_result"]["score"]
 
-        # Lưu file Word
         docx_path = None
         try:
             docx_path = save_to_word(final_result, final_score)
-            print(f"📄 Đã lưu bài viết ra: {docx_path}")
+            self._log(f"Saved to Word document: {docx_path}")
         except Exception as exc:
-            print(f"⚠️ Không thể ghi file Word: {exc}")
+            self._log(f"Could not save Word document: {exc}", "WARNING")
 
-        print(f"📊 Điểm số cuối cùng: {final_score:.2f}")
-        print(f"🔄 Số lần lặp: {state['iteration']}")
-        print(f"🎯 Lần lặp tốt nhất: {state['best_result'].get('iteration', 'N/A')}")
-        print(f"🔍 Tavily search enabled: {state.get('enable_search', False)}")
-        print(
-            f"✅ Trạng thái: {'ĐẠT CHUẨN' if final_score >= state['pass_threshold'] else 'CHƯA ĐẠT CHUẨN'}"
-        )
+        # Log final summary
+        self._log_json({
+            "final_score": final_score,
+            "total_iterations": state["iteration"],
+            "best_iteration": state["best_result"].get("iteration", "N/A"),
+            "tavily_search_enabled": state.get("enable_search", False),
+            "threshold_met": final_score >= state["pass_threshold"],
+            "pass_threshold": state["pass_threshold"],
+            "content_length": len(final_result),
+            "docx_saved": docx_path is not None
+        }, "FINAL SUMMARY")
 
         return {
             **state,
@@ -310,7 +359,7 @@ class MultiAgentSystem:
         }
 
     def _map_topic_to_post_type(self, topic_type: str) -> str:
-        """Map topic_type từ orchestrator sang post_type cho generator/evaluator"""
+        """Map topic_type to post_type"""
         topic_mapping = {
             "food_nutrition": "health_nutrition",
             "disease_warning": "disease_warning",
@@ -322,19 +371,19 @@ class MultiAgentSystem:
         return topic_mapping.get(topic_type, "health_nutrition")
 
     def get_available_topics(self) -> List[str]:
-        """Lấy danh sách các topic types có sẵn"""
+        """Get available topic types"""
         return self.orchestrator.get_available_topics()
 
     def get_available_post_types(self) -> List[str]:
-        """Lấy danh sách các post types có sẵn"""
+        """Get available post types"""
         return self.generator.get_available_post_types()
 
     def get_available_criteria(self) -> List[str]:
-        """Lấy danh sách các criteria có sẵn"""
+        """Get available criteria"""
         return self.evaluator.get_available_criteria()
 
     def get_default_criteria(self) -> Dict[str, float]:
-        """Lấy criteria mặc định"""
+        """Get default criteria"""
         return self.evaluator.get_default_criteria()
 
     def run(self, 
@@ -357,14 +406,11 @@ class MultiAgentSystem:
         if topic_type not in self.get_available_topics():
             raise ValueError(f"Topic type must be one of: {self.get_available_topics()}")
         
-        # Map topic_type to post_type for compatibility
         post_type = self._map_topic_to_post_type(topic_type)
         
-        # Set default criteria if not provided
         if custom_criteria is None:
             custom_criteria = self.get_default_criteria()
 
-        # Import helper function
         from agents.state import create_initial_agent_state
         
         initial_state = create_initial_agent_state(
@@ -381,18 +427,18 @@ class MultiAgentSystem:
         )
 
         if verbose:
-            print(f"🚀 Bắt đầu xử lý với cấu hình:")
-            print(f"  📝 Yêu cầu: {user_request}")
-            print(f"  🌐 Ngôn ngữ: {language}")
-            print(f"  📂 Chủ đề: {topic_type} -> {post_type}")
-            print(f"  👥 Đối tượng: {target_audience or 'Không xác định'}")
-            print(f"  🏷️ Hashtags: {custom_hashtags or 'Mặc định'}")
-            print(f"  🎯 Ngưỡng pass: {pass_threshold}")
-            print(f"  🔄 Tối đa {max_iterations} lần lặp")
-            print(f"  🔍 Tavily search: {'Enabled' if enable_search else 'Disabled'}")
-            print("-" * 50)
+            self._log_json({
+                "user_request": user_request,
+                "language": language,
+                "topic_type": topic_type,
+                "post_type": post_type,
+                "target_audience": target_audience,
+                "custom_hashtags": custom_hashtags,
+                "pass_threshold": pass_threshold,
+                "max_iterations": max_iterations,
+                "tavily_search": enable_search
+            }, "SYSTEM CONFIGURATION")
 
-        # Chạy graph với thread_id để sử dụng checkpointer
         config = {"configurable": {"thread_id": "main_thread"}}
         
         try:
@@ -419,9 +465,9 @@ class MultiAgentSystem:
             }
             
         except Exception as e:
-            print(f"❌ Lỗi trong quá trình chạy hệ thống: {str(e)}")
+            self._log(f"System error: {str(e)}", "ERROR")
             return {
-                "content": f"Lỗi: {str(e)}",
+                "content": f"Error: {str(e)}",
                 "score": 0.0,
                 "orchestrator_plan": {},
                 "search_results": None,
@@ -436,44 +482,42 @@ class MultiAgentSystem:
 
 
 def main():
-    """Hàm main để test hệ thống với Tavily search"""
+    """Main function to test the system"""
     system = MultiAgentSystem()
     
-    # Test với Tavily search enabled
     test_cases = [
         {
-            "user_request": "5 thực phẩm giàu magie với tác dụng giúp ngủ ngon",
-            "language": "vietnamese",
+            "user_request": "5 foods rich in magnesium that help improve sleep quality",
+            "language": "english",
             "topic_type": "food_nutrition",
-            "target_audience": "Mọi người",
-            "custom_hashtags": ["#dinhduong", "#suckhoe"],
+            "target_audience": "Everyone",
+            "custom_hashtags": ["#nutrition", "#health", "#sleep"],
             "enable_search": True
         }
     ]
     
     for i, test_case in enumerate(test_cases, 1):
         print(f"\n{'='*60}")
-        print(f"TEST CASE {i} - WITH TAVILY SEARCH")
+        print(f"TEST CASE {i}")
         print(f"{'='*60}")
         
         result = system.run(**test_case)
         
-        print(f"\n📊 KẾT QUẢ TEST CASE {i}:")
-        print(f"✅ Thành công: {result['success']}")
-        print(f"📊 Điểm số: {result['score']:.2f}")
-        print(f"🔄 Số lần lặp: {result['iterations']}")
-        print(f"🔍 Tavily search: {'Enabled' if result['enable_search'] else 'Disabled'}")
-        print(f"📄 File Word: {result.get('docx_path', 'Không có')}")
+        print(f"\nTEST CASE {i} RESULTS:")
+        print(f"Success: {result['success']}")
+        print(f"Score: {result['score']:.3f}")
+        print(f"Iterations: {result['iterations']}")
+        print(f"Tavily search: {result['enable_search']}")
+        print(f"Word file: {result.get('docx_path', 'None')}")
         
-        # Show search statistics
         if result.get('search_results'):
             search_stats = result['search_results']
-            print(f"📊 Total sources: {search_stats.get('total_results', 0)}")
+            print(f"Search sources: {search_stats.get('total_results', 0)}")
         
         if result.get('search_content'):
-            print(f"📄 Search content: {len(result['search_content'])} characters")
+            print(f"Search content: {len(result['search_content'])} characters")
         
-        print(f"\n📝 Nội dung:\n{result['content']}")
+        print(f"\nGenerated Content:\n{result['content']}")
 
 
 if __name__ == "__main__":

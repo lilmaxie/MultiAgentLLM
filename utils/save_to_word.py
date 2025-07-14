@@ -8,9 +8,7 @@ from docx import Document
 
 
 def _add_paragraph_with_markdown(doc: Document, text: str) -> None:
-    """
-    Thêm một paragraph, tự parse **bold** sang run.bold = True.
-    """
+    """Thêm một paragraph, tự parse **bold** sang run.bold = True."""
     pattern = re.compile(r"\*\*(.*?)\*\*")
     p = doc.add_paragraph()
     pos = 0
@@ -28,13 +26,10 @@ def _add_paragraph_with_markdown(doc: Document, text: str) -> None:
 
 def save_to_word(
     content: str,
-    score: Optional[float] = None,      # score vẫn nhận nhưng sẽ bỏ qua
+    score: Optional[float] = None,
     out_dir: str | Path = "outputs",
 ) -> Path:
-    """
-    Ghi `content` ra file .docx (không kèm heading & score).
-    Cụm **text** ➜ in đậm.
-    """
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

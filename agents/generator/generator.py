@@ -33,16 +33,16 @@ class GeneratorAgent:
             # Check if search results are available
             search_results = plan_data.get("search_results")
             if search_results and search_results.get("success"):
-                search_content = "📚 RESEARCH FINDINGS FROM ORCHESTRATOR:\n\n"
+                search_content = "RESEARCH FINDINGS FROM ORCHESTRATOR:\n\n"
                 
                 # Add main answer if available
                 if search_results.get("answer"):
-                    search_content += f"🔍 KEY INSIGHTS:\n{search_results['answer']}\n\n"
+                    search_content += f"KEY INSIGHTS:\n{search_results['answer']}\n\n"
                 
                 # Add detailed results
                 results = search_results.get("results", [])
                 if results:
-                    search_content += "📊 DETAILED SOURCES:\n"
+                    search_content += "DETAILED SOURCES:\n"
                     for i, result in enumerate(results[:5], 1):
                         title = result.get("title", "Unknown")
                         content = result.get("content", "")

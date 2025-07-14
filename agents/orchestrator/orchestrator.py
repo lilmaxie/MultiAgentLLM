@@ -90,12 +90,12 @@ class OrchestratorAgent:
         
         # Add main answer if available
         if search_data.get("answer"):
-            formatted_content += f"\n📊 KEY INSIGHTS:\n{search_data['answer']}\n"
+            formatted_content += f"\nKEY INSIGHTS:\n{search_data['answer']}\n"
         
         # Add top results
         results = search_data.get("results", [])
         if results:
-            formatted_content += f"\n📋 TOP SOURCES:\n"
+            formatted_content += f"\nTOP SOURCES:\n"
             for i, result in enumerate(results[:5], 1):
                 title = result.get("title", "Unknown")
                 url = result.get("url", "")
@@ -123,11 +123,8 @@ class OrchestratorAgent:
              target_audience: Optional[str] = None,
              custom_hashtags: Optional[List[str]] = None,
              enable_search: bool = True) -> Dict[str, Any]:
-        """
-        Generate orchestrator plan with Tavily search integration
-        """
+        """Generate orchestrator plan with Tavily search"""
         
-        # Validate inputs
         if language not in ["vietnamese", "english"]:
             raise ValueError("Language must be 'vietnamese' or 'english'")
             
@@ -137,7 +134,7 @@ class OrchestratorAgent:
         # Perform Tavily search if enabled
         search_results = None
         if enable_search:
-            print("🔍 Performing Tavily search for reliable sources...")
+            print("Tavily searching sources...")
             search_results = self._search_with_tavily(user_request)
         
         # Load topic-specific template

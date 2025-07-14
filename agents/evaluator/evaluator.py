@@ -227,5 +227,5 @@ class EvaluatorAgent:
         else:
             feedback = "Cannot parse evaluation response - please check template format"
         
-        print(f"⚠️  Using fallback parsing - Score: {score}, Feedback: {feedback}")
+        print(f"Using fallback parsing - Score: {score}, Feedback: {feedback}")
         return score, feedback
